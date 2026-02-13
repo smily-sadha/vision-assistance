@@ -1,0 +1,7 @@
+opencv-python
+mediapipe
+insightface
+onnxruntime
+numpy
+pyttsx3
+onnxruntime-gpu

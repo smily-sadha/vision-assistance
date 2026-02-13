@@ -1,0 +1,32 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Data / generated content
+dataset/
+faces/
+embeddings/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Models / weights
+models/
+*.onnx
+*.pt
+*.pth
+*.ckpt
+
+# Logs / temp
+*.log
+*.tmp
+
+# IDE / editor junk
+.vscode/
+.idea/
+
+# Windows junk
+Thumbs.db
+Desktop.ini
