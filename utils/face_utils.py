@@ -1,20 +1,33 @@
 import numpy as np
+import faiss
 
-def cosine_distance(a, b):
-    return 1 - np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+def build_faiss_index(embeddings):
 
-def find_best_match(embedding, db_embeddings, db_labels, threshold):
-    best_dist = float("inf")
-    best_label = "Unknown"
+    embeddings = embeddings.astype('float32')
 
-    for ref_emb, label in zip(db_embeddings, db_labels):
-        dist = cosine_distance(embedding, ref_emb)
+    dim = embeddings.shape[1]
 
-        if dist < best_dist:
-            best_dist = dist
-            best_label = label
+    index = faiss.IndexFlatIP(dim)   # Inner product = cosine similarity
+    faiss.normalize_L2(embeddings)
 
-    if best_dist > threshold:
-        return "Unknown", best_dist
+    index.add(embeddings)
 
-    return best_label, best_dist
+    return index
+
+
+def query_index(index, embedding, labels, threshold):
+
+    emb = np.expand_dims(embedding, axis=0).astype('float32')
+    faiss.normalize_L2(emb)
+
+    similarity, idx = index.search(emb, 1)
+
+    sim = similarity[0][0]
+    label = labels[idx[0][0]]
+
+    dist = 1 - sim   # Convert similarity → cosine distance style
+
+    if dist > threshold:
+        return "Unknown", dist
+
+    return label, dist
