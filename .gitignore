@@ -3,7 +3,10 @@ venv/
 .venv/
 env/
 
-
+# Data / generated content
+dataset/
+faces/
+embeddings/
 
 # Python cache
 __pycache__/

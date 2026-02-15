@@ -403,6 +403,13 @@ class CompleteVisionAssistant:
         cv2.destroyAllWindows()
         print("✅ Done!")
 
+import os, sys
+print("EXECUTABLE:", sys.executable)
+print("CWD:", os.getcwd())
+print("DEEPGRAM:", repr(os.getenv("DEEPGRAM_API_KEY")))
+print("GEMINI:", repr(os.getenv("GEMINI_API_KEY")))
+
+
 
 if __name__ == "__main__":
     app = CompleteVisionAssistant()

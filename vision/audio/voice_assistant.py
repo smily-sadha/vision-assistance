@@ -164,7 +164,15 @@ class VoiceAssistantThread:
     def stop(self):
         """Stop assistant"""
         if self.loop:
-            asyncio.run_coroutine_threadsafe(
+            future = asyncio.run_coroutine_threadsafe(
                 self.assistant.stop_listening(),
                 self.loop
             )
+            try:
+                # wait up to 5 seconds for clean shutdown
+                future.result(timeout=5)
+            except Exception:
+                try:
+                    future.cancel()
+                except Exception:
+                    pass
