@@ -75,10 +75,10 @@ class VoiceAssistant:
     def greet_person(self, name):
         """Greet a recognised person."""
         greetings = [
-            f"Hello {name}! How can I help you today?",
-            f"Hi {name}! Nice to see you!",
-            f"Welcome back, {name}!",
-            f"Good to see you, {name}!"
+            f"Hello {name}! I am ONI, your assistant. How can I help you today?",
+            f"Hi {name}! ONI here. Nice to see you!",
+            f"Welcome back, {name}! I am ONI, ready to assist.",
+            f"Good to see you, {name}! ONI is online."
         ]
         self.speak(random.choice(greetings))
 
@@ -136,7 +136,7 @@ class VoiceAssistantThread:
     # Public API
     # ------------------------------------------------------------------
 
-    def start(self, on_stopped_callback=None):
+    def start(self, on_stopped_callback=None, on_learn_face_callback=None):
         """
         Start the continuous voice loop in a daemon thread.
 
@@ -144,12 +144,14 @@ class VoiceAssistantThread:
             on_stopped_callback: zero-arg callable invoked when the loop ends
                                  (e.g. on exit command). Use this to set
                                  voice_active = False in the main app.
+            on_learn_face_callback: callable(name) invoked when user asks to learn a face
         """
         if self._thread and self._thread.is_alive():
             print("⚠ Voice thread already running")
             return
 
         self._on_stopped = on_stopped_callback
+        self._on_learn_face = on_learn_face_callback
         self._stop_event.clear()
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="VoiceContinuousLoop"
@@ -288,6 +290,7 @@ class VoiceAssistantThread:
 
     def _process_utterance(self, frames):
         """Run STT → check exit / confidence → LLM → TTS."""
+        import re
         result     = self._send_to_deepgram(frames)
         transcript = result.get("transcript", "").strip()
         confidence = result.get("confidence", 1.0)
@@ -300,6 +303,17 @@ class VoiceAssistantThread:
             print(f"🛑 Exit command: '{transcript}'")
             self.assistant.speak("Sure, turning off voice mode. Goodbye!")
             self._stop_event.set()
+            return
+            
+        # ── learn face command? ───────────────────────────────────────
+        learn_match = re.search(r"(?:this is|learn face) (?:my friend |the person )?([a-zA-Z0-9_]+)", transcript, re.IGNORECASE)
+        if learn_match:
+            name = learn_match.group(1).lower().strip()
+            print(f"📸 Learn Face command: '{transcript}' -> Name: {name}")
+            self.assistant.speak(f"Okay, I will learn the face for {name}. Please look at the camera for the next few seconds.")
+            if getattr(self, "_on_learn_face", None):
+                self._stop_event.set() # Stop the voice loop so camera can be used safely
+                self._on_learn_face(name)
             return
 
         # ── low confidence? ───────────────────────────────────────────

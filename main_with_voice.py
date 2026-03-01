@@ -98,6 +98,7 @@ class CompleteVisionAssistant:
         self.detected_objects = []
         self.last_greeting = {}
         self.greeting_cooldown = 30
+        self.pending_learn_face = None
         
         # FPS
         self.fps_start = time.time()
@@ -244,6 +245,42 @@ class CompleteVisionAssistant:
         
         try:
             while True:
+                if self.pending_learn_face:
+                    # Release camera to allow capture_faces.py to use it
+                    name_to_learn = self.pending_learn_face
+                    self.pending_learn_face = None
+                    self.cap.release()
+                    cv2.destroyAllWindows()
+                    
+                    print(f"\n[INFO] Pausing main loop to learn face: {name_to_learn}")
+                    
+                    import subprocess
+                    print("[INFO] Running capture_faces.py...")
+                    subprocess.run([sys.executable, "vision/tools/capture_faces.py", name_to_learn, "--headless"])
+                    
+                    print("[INFO] Running rebuild_database_faces.py...")
+                    subprocess.run([sys.executable, "vision/tools/rebuild_database_faces.py"])
+                    
+                    print("[INFO] Reloading face recognition database...")
+                    self.face_manager = self._init_face_recognition()
+                    
+                    print("[INFO] Reopening camera...")
+                    self.cap = cv2.VideoCapture(0)
+                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    
+                    if self.voice_assistant:
+                        self.voice_assistant['tts'].speak(f"Learning complete. I now know who {name_to_learn} is.")
+                        # Auto-restart voice
+                        def _on_voice_stopped():
+                            self.voice_active = False
+                            print("[Voice] Loop exited – voice off")
+                        self.voice_assistant['thread'].start(on_stopped_callback=_on_voice_stopped, on_learn_face_callback=self._set_pending_learn_face)
+                        self.voice_active = True
+                    
+                    print("[INFO] Resuming main loop...")
+                    continue
+
                 ret, frame = self.cap.read()
                 if not ret:
                     break
@@ -351,9 +388,16 @@ class CompleteVisionAssistant:
                                 def _on_voice_stopped():
                                     self.voice_active = False
                                     print("[Voice] Loop exited – voice off")
+                                    
+                                def _on_learn_face(name):
+                                    self.pending_learn_face = name
+
+                                # Save the callback function to the object so we can use it in auto-restart
+                                self._set_pending_learn_face = _on_learn_face
 
                                 self.voice_assistant['thread'].start(
-                                    on_stopped_callback=_on_voice_stopped
+                                    on_stopped_callback=_on_voice_stopped,
+                                    on_learn_face_callback=_on_learn_face
                                 )
                                 self.voice_active = True
                                 # Announce activation via TTS

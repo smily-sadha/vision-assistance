@@ -17,8 +17,19 @@ print("="*60)
 print("AUTOMATIC FACE CAPTURE")
 print("="*60)
 
-# Only question: Get name
-name = input("\nEnter name: ").strip()
+import sys
+
+# Get name from args or input
+headless = False
+if len(sys.argv) > 1:
+    name = sys.argv[1].strip()
+    if "--headless" in sys.argv:
+        headless = True
+        if name == "--headless":
+            # If they just passed --headless, not supported without name, fallback to arg 2 if exists
+            name = sys.argv[2].strip() if len(sys.argv) > 2 else "unknown"
+else:
+    name = input("\nEnter name: ").strip()
 
 if not name:
     print("Error: Name cannot be empty!")
@@ -60,36 +71,40 @@ print("\n" + "="*60)
 print("GET READY!")
 print("="*60)
 print("Position your face in the frame")
-print("Camera will start capturing in 3 seconds...")
+if headless:
+    print("Voice mode active... capturing immediately.")
+else:
+    print("Camera will start capturing in 3 seconds...")
 print("Move your head slightly for variety")
 print("="*60)
 
-# 3 second countdown
-for i in range(3, 0, -1):
-    ret, frame = cap.read()
-    if ret:
-        # Detect face for visual feedback
-        (h, w) = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300),
-                                     (104.0, 177.0, 123.0), swapRB=False, crop=False)
-        detector.setInput(blob)
-        detections = detector.forward()
+# 3 second countdown (skip if headless)
+if not headless:
+    for i in range(3, 0, -1):
+        ret, frame = cap.read()
+        if ret:
+            # Detect face for visual feedback
+            (h, w) = frame.shape[:2]
+            blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300),
+                                         (104.0, 177.0, 123.0), swapRB=False, crop=False)
+            detector.setInput(blob)
+            detections = detector.forward()
+            
+            # Draw face box
+            for j in range(detections.shape[2]):
+                conf = detections[0, 0, j, 2]
+                if conf > 0.5:
+                    box = detections[0, 0, j, 3:7] * np.array([w, h, w, h])
+                    (x1, y1, x2, y2) = box.astype("int")
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
+            
+            # Countdown text
+            cv2.putText(frame, f"Starting in {i}...", (w//2 - 100, h//2),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
+            cv2.imshow("Face Capture", frame)
+            cv2.waitKey(1)
         
-        # Draw face box
-        for j in range(detections.shape[2]):
-            conf = detections[0, 0, j, 2]
-            if conf > 0.5:
-                box = detections[0, 0, j, 3:7] * np.array([w, h, w, h])
-                (x1, y1, x2, y2) = box.astype("int")
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
-        
-        # Countdown text
-        cv2.putText(frame, f"Starting in {i}...", (w//2 - 100, h//2),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
-        cv2.imshow("Face Capture", frame)
-        cv2.waitKey(1)
-    
-    time.sleep(1)
+        time.sleep(1)
 
 # Start capturing
 print("\n[INFO] CAPTURING...")
@@ -149,36 +164,37 @@ while captured < IMAGES_TO_CAPTURE:
             
             break  # Only capture first detected face
     
-    # Display progress
-    progress = int((captured / IMAGES_TO_CAPTURE) * 100)
-    
-    # Status text
-    if face_saved:
-        status = "CAPTURED!"
-        color = (0, 255, 255)
-    else:
-        status = "Capturing..."
-        color = (0, 255, 0)
-    
-    cv2.putText(frame, status, (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-    cv2.putText(frame, f"{captured}/{IMAGES_TO_CAPTURE} ({progress}%)", (10, 70),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
-    
-    # Progress bar
-    bar_w = 500
-    bar_h = 40
-    cv2.rectangle(frame, (10, 90), (10 + bar_w, 90 + bar_h), (50, 50, 50), -1)
-    filled = int((captured / IMAGES_TO_CAPTURE) * bar_w)
-    cv2.rectangle(frame, (10, 90), (10 + filled, 90 + bar_h), (0, 255, 0), -1)
-    cv2.rectangle(frame, (10, 90), (10 + bar_w, 90 + bar_h), (255, 255, 255), 2)
-    
-    cv2.imshow("Face Capture", frame)
-    
-    # ESC to cancel
-    if cv2.waitKey(1) & 0xFF == 27:
-        print("\n[INFO] Cancelled by user")
-        break
+    # Display progress if not headless
+    if not headless:
+        progress = int((captured / IMAGES_TO_CAPTURE) * 100)
+        
+        # Status text
+        if face_saved:
+            status = "CAPTURED!"
+            color = (0, 255, 255)
+        else:
+            status = "Capturing..."
+            color = (0, 255, 0)
+        
+        cv2.putText(frame, status, (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+        cv2.putText(frame, f"{captured}/{IMAGES_TO_CAPTURE} ({progress}%)", (10, 70),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+        
+        # Progress bar
+        bar_w = 500
+        bar_h = 40
+        cv2.rectangle(frame, (10, 90), (10 + bar_w, 90 + bar_h), (50, 50, 50), -1)
+        filled = int((captured / IMAGES_TO_CAPTURE) * bar_w)
+        cv2.rectangle(frame, (10, 90), (10 + filled, 90 + bar_h), (0, 255, 0), -1)
+        cv2.rectangle(frame, (10, 90), (10 + bar_w, 90 + bar_h), (255, 255, 255), 2)
+        
+        cv2.imshow("Face Capture", frame)
+        
+        # ESC to cancel
+        if cv2.waitKey(1) & 0xFF == 27:
+            print("\n[INFO] Cancelled by user")
+            break
 
 cap.release()
 cv2.destroyAllWindows()
