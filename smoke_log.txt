@@ -1,0 +1,82 @@
+﻿venv\Scripts\python.exe : 
+D:\D\final year project\visio
+n_assistant\venv\lib\site-pac
+kages\google\api_core\_python
+_version_support.py:275: 
+FutureWarning: You are using 
+a Python version (3.10.0) 
+which Google will stop 
+supporting in new releases 
+of google.api_core once it 
+reaches its end of life 
+(2026-10-04). Please upgrade 
+to the latest Python 
+version, or at least Python 
+3.11, to continue receiving 
+updates for google.api_core 
+past that date.
+At line:1 char:1
++ venv\Scripts\python.exe 
+test_voice_smoke.py 2>&1 | 
+Out-File -FilePath ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecifi    ed: 
+(D:\D\final ye    ar...past 
+that dat    e.:String) [], 
+Rem    oteException
+    + FullyQualifiedEr    
+rorId : NativeComm    
+andError
+ 
+  warnings.warn(message, 
+FutureWarning)
+D:\D\final year project\visio
+n_assistant\vision\audio\llm\
+gemini_llm.py:6: 
+FutureWarning: 
+
+All support for the 
+`google.generativeai` 
+package has ended. It will 
+no longer be receiving 
+updates or bug fixes. Please 
+switch to the `google.genai` 
+package as soon as possible.
+See README for more details:
+
+https://github.com/google-gem
+ini/deprecated-generative-ai-
+python/blob/main/README.md
+
+  import google.generativeai 
+as genai
+Traceback (most recent call 
+last):
+  File "D:\D\final year proje
+ct\vision_assistant\test_voic
+e_smoke.py", line 16, in 
+<module>
+pygame 2.6.1 (SDL 2.28.4, Python 3.10.0)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+    stt  = 
+DeepgramSTT(dg_key)
+  File "D:\D\final year proje
+ct\vision_assistant\vision\au
+dio\stt\deepgram_stt.py", 
+line 25, in __init__
+    print("\u2713 Deepgram 
+STT initialized")
+  File "C:\Users\sadha\AppDat
+a\Local\Programs\Python\Pytho
+n310\lib\encodings\cp1252.py"
+, line 19, in encode
+    return codecs.charmap_enc
+ode(input,self.errors,encodin
+g_table)[0]
+UnicodeEncodeError: 
+'charmap' codec can't encode 
+character '\u2713' in 
+position 0: character maps 
+to <undefined>

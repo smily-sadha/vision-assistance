@@ -1,90 +1,61 @@
 """
-COMPLETE VISION ASSISTANT - FIXED VERSION
-Face Recognition + YOLO + Voice AI
-All features properly integrated
+VISION ASSISTANT - Main Application
+Face Recognition + YOLO Object Detection + Voice AI
+
+Features:
+- Real-time face recognition (SSD + InsightFace)
+- YOLO object detection
+- Voice AI (Deepgram TTS + Gemini)
+- Auto-greeting for recognized people
+- Context-aware AI responses
+
+Controls:
+- V: Toggle voice assistant
+- F: Toggle face recognition
+- Y: Toggle YOLO detection
+- T: Test voice
+- 1-5: Quick voice commands
+- SPACE: Take snapshot
+- ESC: Exit
 """
 
 import cv2
 import time
 import os
-import sys
 from dotenv import load_dotenv
-from pathlib import Path
 import numpy as np
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path, override=True)
 
-# Face recognition
+# Import components
 from vision.recognition.recognition_manager import RecognitionManager
+from vision.audio.voice_assistant import VoiceAssistant
+from vision.audio.stt.deepgram_stt import DeepgramSTT
+from vision.audio.tts.deepgram_tts import DeepgramTTS
+from vision.audio.llm.gemini_llm import GeminiLLM
 
 
-class CompleteVisionAssistant:
-    """Complete vision assistant with all features"""
+class VisionAssistant:
+    """Main Vision Assistant Application"""
     
     def __init__(self):
         print("="*70)
-        print("COMPLETE VISION ASSISTANT")
+        print("VISION ASSISTANT")
         print("Face Recognition + YOLO + Voice AI")
         print("="*70)
         
-        # Load .env with explicit path
-        env_path = Path('.') / '.env'
-        load_dotenv(dotenv_path=env_path, override=True)
+        load_dotenv()
         
-        # Verify API keys loaded
-        dg_key = os.getenv("DEEPGRAM_API_KEY")
-        gm_key = os.getenv("GEMINI_API_KEY")
-        print(f"\n[DEBUG] Deepgram key: {'✓ Found' if dg_key else '✗ NOT FOUND'}")
-        print(f"[DEBUG] Gemini key: {'✓ Found' if gm_key else '✗ NOT FOUND'}")
-        
-        # Initialize face recognition
+        # Initialize components
         print("\n[1/3] Loading Face Recognition...")
         self.face_manager = self._init_face_recognition()
         
-        # Initialize YOLO
-        print("\n[2/3] Loading YOLO Object Detection...")
+        print("\n[2/3] Loading YOLO Detection...")
         self.yolo_detector = self._init_yolo()
         
-        # Initialize voice assistant with keys
         print("\n[3/3] Loading Voice AI...")
-        self.voice_assistant = None
-        self.voice_active = False
-        
-        if dg_key and gm_key:
-            try:
-                print("  [DEBUG] Importing voice modules...")
-                from vision.audio.stt.deepgram_stt import DeepgramSTT
-                from vision.audio.tts.deepgram_tts import DeepgramTTS
-                from vision.audio.llm.gemini_llm import GeminiLLM
-                from vision.audio.voice_assistant import VoiceAssistant, VoiceAssistantThread
-                
-                print("  [DEBUG] Creating voice components...")
-                stt = DeepgramSTT(dg_key)
-                tts = DeepgramTTS(dg_key)
-                llm = GeminiLLM(gm_key)
-                assistant = VoiceAssistant(stt, tts, llm)
-                thread_manager = VoiceAssistantThread(assistant)
-                
-                self.voice_assistant = {
-                    'assistant': assistant,
-                    'thread': thread_manager,
-                    'stt': stt,
-                    'tts': tts,
-                    'llm': llm
-                }
-                
-                print("  ✓ Voice AI ready - press V to activate")
-            except Exception as e:
-                print(f"  ✗ Voice initialization failed: {e}")
-                import traceback
-                traceback.print_exc()
-                self.voice_assistant = None
-        else:
-            print("  ✗ Voice disabled - API keys not found in .env")
-            self.voice_assistant = None
+        self.voice_assistant = self._init_voice_assistant()
         
         # Camera
-        print("\nStarting camera...")
+        print("\nInitializing camera...")
         self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -92,28 +63,27 @@ class CompleteVisionAssistant:
         # State
         self.face_enabled = True
         self.yolo_enabled = True
+        self.voice_enabled = False
         
         self.recognized_people = set()
         self.current_people = []
         self.detected_objects = []
         self.last_greeting = {}
-        self.greeting_cooldown = 30
+        self.greeting_cooldown = 30  # seconds
         
-        # FPS
+        # Performance
         self.fps_start = time.time()
         self.fps_count = 0
         self.fps_display = 0
-        
-        # Frame skip for YOLO
         self.frame_counter = 0
-        self.yolo_skip = 3
+        self.yolo_skip = 3  # Process YOLO every 3rd frame
         
         print("\n" + "="*70)
         print("✅ ALL SYSTEMS READY!")
         print("="*70)
     
     def _init_face_recognition(self):
-        """Initialize face recognition"""
+        """Initialize face recognition system"""
         try:
             manager = RecognitionManager(
                 database_path="embeddings/face_db_ssd.npz",
@@ -123,36 +93,50 @@ class CompleteVisionAssistant:
             print("  ✓ Face recognition ready")
             return manager
         except Exception as e:
-            print(f"  ⚠ Face recognition failed: {e}")
+            print(f"  ✗ Face recognition failed: {e}")
             return None
     
     def _init_yolo(self):
-        """Initialize YOLO detector"""
+        """Initialize YOLO object detector"""
         try:
             from ultralytics import YOLO
-            
-            model_path = "assets/models/yolo/yolov8n.pt"
-            if not os.path.exists(model_path):
-                print(f"  Downloading YOLOv8n model...")
-                model = YOLO('yolov8n.pt')
-            else:
-                model = YOLO(model_path)
-            
+            model = YOLO('yolov8n.pt')
             print("  ✓ YOLO object detection ready")
             return model
         except Exception as e:
-            print(f"  ⚠ YOLO failed: {e}")
+            print(f"  ⚠ YOLO not available: {e}")
+            return None
+    
+    def _init_voice_assistant(self):
+        """Initialize voice AI system"""
+        try:
+            deepgram_key = os.getenv("DEEPGRAM_API_KEY")
+            gemini_key = os.getenv("GEMINI_API_KEY")
+            
+            if not deepgram_key or not gemini_key:
+                print("  ⚠ Voice disabled - API keys not set")
+                return None
+            
+            stt = DeepgramSTT(deepgram_key)
+            tts = DeepgramTTS(deepgram_key)
+            llm = GeminiLLM(gemini_key)
+            
+            assistant = VoiceAssistant(stt, tts, llm)
+            print("  ✓ Voice AI ready")
+            return assistant
+        except Exception as e:
+            print(f"  ⚠ Voice not available: {e}")
             return None
     
     def detect_yolo_objects(self, frame):
-        """Detect objects with YOLO"""
+        """Detect objects using YOLO"""
         if self.yolo_detector is None:
             return []
         
         try:
             results = self.yolo_detector(frame, conf=0.5, verbose=False)
-            
             detections = []
+            
             for result in results:
                 boxes = result.boxes
                 for box in boxes:
@@ -164,16 +148,15 @@ class CompleteVisionAssistant:
                     detections.append({
                         'bbox': (x1, y1, x2, y2),
                         'class': cls_name,
-                        'confidence': conf,
-                        'class_id': cls_id
+                        'confidence': conf
                     })
             
             return detections
-        except Exception as e:
+        except:
             return []
     
     def draw_face_results(self, frame, results):
-        """Draw face recognition results"""
+        """Draw face recognition results on frame"""
         for result in results:
             x1, y1, x2, y2 = result['bbox']
             name = result['name']
@@ -188,7 +171,7 @@ class CompleteVisionAssistant:
         return frame
     
     def draw_yolo_results(self, frame, detections):
-        """Draw YOLO detection results"""
+        """Draw YOLO detection results on frame"""
         for det in detections:
             x1, y1, x2, y2 = det['bbox']
             cls = det['class']
@@ -203,7 +186,7 @@ class CompleteVisionAssistant:
         return frame
     
     def greet_person(self, name):
-        """Greet recognized person"""
+        """Greet a recognized person"""
         current_time = time.time()
         
         if name not in self.last_greeting or \
@@ -211,35 +194,31 @@ class CompleteVisionAssistant:
             
             self.last_greeting[name] = current_time
             
-            print(f"👋 Hello {name}!")
-            if self.voice_assistant:
-                try:
-                    self.voice_assistant['assistant'].greet_person(name)
-                except Exception as e:
-                    print(f"Greeting error: {e}")
+            if self.voice_assistant and self.voice_enabled:
+                self.voice_assistant.greet_person(name)
+            else:
+                print(f"👋 Hello {name}!")
     
     def update_voice_context(self):
-        """Update voice assistant context"""
-        if self.voice_assistant and self.voice_active:
-            try:
-                self.voice_assistant['assistant'].update_vision_context(
-                    recognized_people=self.current_people,
-                    face_count=len(self.current_people),
-                    objects=[d['class'] for d in self.detected_objects[:10]]
-                )
-            except Exception as e:
-                pass
+        """Update voice assistant with current vision context"""
+        if self.voice_assistant and self.voice_enabled:
+            self.voice_assistant.update_vision_context(
+                recognized_people=self.current_people,
+                face_count=len(self.current_people),
+                objects=[d['class'] for d in self.detected_objects[:10]]
+            )
     
     def run(self):
         """Main application loop"""
         print("\n" + "="*70)
-        print("CONTROLS:")
-        print("  ESC    - Exit")
-        print("  F      - Toggle Face Recognition")
-        print("  Y      - Toggle YOLO Detection")
-        print("  V      - Toggle Voice Assistant")
-        print("  SPACE  - Take snapshot")
+        print("KEYBOARD CONTROLS:")
+        print("  V      - Toggle Voice Assistant ON/OFF")
+        print("  T      - Test Voice (speak test message)")
+        print("  F      - Toggle Face Recognition ON/OFF")
+        print("  Y      - Toggle YOLO Detection ON/OFF")
+        print("  SPACE  - Take Snapshot")
         print("  +/-    - Adjust face threshold")
+        print("  ESC    - Exit")
         print("="*70 + "\n")
         
         try:
@@ -251,12 +230,13 @@ class CompleteVisionAssistant:
                 display_frame = frame.copy()
                 self.frame_counter += 1
                 
-                # Face Recognition
+                # === FACE RECOGNITION ===
                 face_results = []
                 if self.face_enabled and self.face_manager:
                     face_results = self.face_manager.recognize_frame(frame)
                     self.current_people = [r['name'] for r in face_results if r['name'] != "Unknown"]
                     
+                    # Greet new people
                     for result in face_results:
                         name = result['name']
                         if name != "Unknown" and name not in self.recognized_people:
@@ -265,16 +245,16 @@ class CompleteVisionAssistant:
                     
                     display_frame = self.draw_face_results(display_frame, face_results)
                 
-                # YOLO Object Detection
+                # === YOLO OBJECT DETECTION ===
                 if self.yolo_enabled and self.yolo_detector:
                     if self.frame_counter % self.yolo_skip == 0:
                         self.detected_objects = self.detect_yolo_objects(frame)
                     display_frame = self.draw_yolo_results(display_frame, self.detected_objects)
                 
-                # Update voice context
+                # === UPDATE VOICE CONTEXT ===
                 self.update_voice_context()
                 
-                # Calculate FPS
+                # === CALCULATE FPS ===
                 self.fps_count += 1
                 if self.fps_count >= 30:
                     fps_end = time.time()
@@ -282,7 +262,7 @@ class CompleteVisionAssistant:
                     self.fps_start = time.time()
                     self.fps_count = 0
                 
-                # Display info
+                # === DISPLAY INFO ===
                 y_pos = 30
                 cv2.putText(display_frame, f"FPS: {self.fps_display:.1f}", 
                            (10, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
@@ -301,8 +281,8 @@ class CompleteVisionAssistant:
                            (10, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, yolo_color, 2)
                 y_pos += 30
                 
-                voice_status = "ON" if self.voice_active else "OFF"
-                voice_color = (0, 255, 0) if self.voice_active else (128, 128, 128)
+                voice_status = "ON" if self.voice_enabled else "OFF"
+                voice_color = (0, 255, 0) if self.voice_enabled else (128, 128, 128)
                 cv2.putText(display_frame, f"Voice: {voice_status}", 
                            (10, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, voice_color, 2)
                 
@@ -325,9 +305,9 @@ class CompleteVisionAssistant:
                                (10, display_frame.shape[0] - 10),
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
                 
-                cv2.imshow("Complete Vision Assistant", display_frame)
+                cv2.imshow("Vision Assistant", display_frame)
                 
-                # Handle keys
+                # === HANDLE KEYBOARD ===
                 key = cv2.waitKey(1) & 0xFF
                 
                 if key == 27:  # ESC
@@ -343,45 +323,24 @@ class CompleteVisionAssistant:
                 
                 elif key == ord('v') or key == ord('V'):
                     if self.voice_assistant:
-                        if not self.voice_active:
-                            print("🎤 Starting voice assistant...")
-                            try:
-                                # Pass a callback so the thread can turn off
-                                # voice_active when user says an exit phrase
-                                def _on_voice_stopped():
-                                    self.voice_active = False
-                                    print("[Voice] Loop exited – voice off")
-
-                                self.voice_assistant['thread'].start(
-                                    on_stopped_callback=_on_voice_stopped
-                                )
-                                self.voice_active = True
-                                # Announce activation via TTS
-                                self.voice_assistant['tts'].speak(
-                                    "Voice assistant activated. I'm listening."
-                                )
-                            except Exception as e:
-                                print(f"✗ Voice start failed: {e}")
-                        else:
-                            print("🛑 Stopping voice assistant...")
-                            try:
-                                self.voice_assistant['thread'].stop()
-                                self.voice_active = False
-                            except Exception as e:
-                                print(f"✗ Voice stop failed: {e}")
+                        self.voice_enabled = not self.voice_enabled
+                        status = "ON" if self.voice_enabled else "OFF"
+                        print(f"Voice Assistant: {status}")
+                        if self.voice_enabled:
+                            self.voice_assistant.speak("Voice assistant activated")
                     else:
-                        print("⚠ Voice assistant not available - check .env file")
+                        print("⚠ Voice assistant not available")
+                
+                elif key == ord('t') or key == ord('T'):
+                    if self.voice_assistant:
+                        self.voice_assistant.speak("Voice system test successful")
                 
                 elif key == ord(' '):
                     filename = f"snapshot_{int(time.time())}.jpg"
                     cv2.imwrite(filename, frame)
-                    print(f"📸 Snapshot: {filename}")
-                    
-                    if self.voice_assistant and self.voice_active:
-                        try:
-                            self.voice_assistant['tts'].speak("Snapshot captured!")
-                        except:
-                            pass
+                    print(f"📸 Snapshot saved: {filename}")
+                    if self.voice_assistant and self.voice_enabled:
+                        self.voice_assistant.speak("Snapshot captured")
                 
                 elif key == ord('+') or key == ord('='):
                     if self.face_manager:
@@ -394,7 +353,7 @@ class CompleteVisionAssistant:
                         self.face_manager.update_threshold(new_thresh)
         
         except KeyboardInterrupt:
-            print("\n🛑 Interrupted")
+            print("\n🛑 Interrupted by user")
         
         finally:
             self.cleanup()
@@ -403,26 +362,13 @@ class CompleteVisionAssistant:
         """Cleanup resources"""
         print("\n🧹 Cleaning up...")
         
-        if self.voice_assistant and self.voice_active:
-            try:
-                self.voice_assistant['thread'].stop()
-            except:
-                pass
-        
         if self.cap:
             self.cap.release()
         
         cv2.destroyAllWindows()
-        print("✅ Done!")
-
-import os, sys
-print("EXECUTABLE:", sys.executable)
-print("CWD:", os.getcwd())
-print("DEEPGRAM:", repr(os.getenv("DEEPGRAM_API_KEY")))
-print("GEMINI:", repr(os.getenv("GEMINI_API_KEY")))
-
+        print("✅ Goodbye!")
 
 
 if __name__ == "__main__":
-    app = CompleteVisionAssistant()
+    app = VisionAssistant()
     app.run()

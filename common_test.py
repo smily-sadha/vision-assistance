@@ -1,8 +1,12 @@
+import os
 from dotenv import load_dotenv
 from pathlib import Path
-import os
 
-load_dotenv(Path('.') / '.env', override=True)
+env_path = Path("D:/D/final year project/vision_assistant/.env")
 
-print("DEBUG DEEPGRAM:", repr(os.getenv("DEEPGRAM_API_KEY")))
-print("DEBUG GEMINI:", repr(os.getenv("GEMINI_API_KEY")))
+print("Exists:", env_path.exists())
+
+load_dotenv(dotenv_path=env_path, override=True)
+
+print("Deepgram raw:", os.getenv("DEEPGRAM_API_KEY"))
+print("Gemini raw:", os.getenv("GEMINI_API_KEY"))
