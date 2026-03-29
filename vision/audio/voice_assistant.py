@@ -73,12 +73,12 @@ class VoiceAssistant:
             print(f"❌ Speak error: {e}")
 
     def greet_person(self, name):
-        """Greet a recognised person."""
+        """Greet a recognised person and provide user direction."""
         greetings = [
-            f"Hello {name}! I am ONI, your assistant. How can I help you today?",
-            f"Hi {name}! ONI here. Nice to see you!",
-            f"Welcome back, {name}! I am ONI, ready to assist.",
-            f"Good to see you, {name}! ONI is online."
+            f"Hello, {name} is right in front of you.",
+            f"ONI here. I see {name} in front of you.",
+            f"{name} is standing in front of you.",
+            f"I have detected {name} heading your way."
         ]
         self.speak(random.choice(greetings))
 

@@ -1,7 +1,9 @@
-opencv-python
-mediapipe
-insightface
-onnxruntime
-numpy
-pyttsx3
-onnxruntime-gpu
+opencv-python==4.8.0.76
+mediapipe==0.10.9
+insightface==0.7.3
+onnxruntime==1.16.3
+numpy==1.26.4
+pyttsx3==2.99
+protobuf==3.20.3
+onnxruntime-gpu==1.16.3
+ultralytics==8.4.14
